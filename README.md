@@ -223,6 +223,8 @@ What the zip must contain:
 The discussion prompts live in `STUDENT-QUESTIONS.md` — one per plank, no standard answers, and the
 real point of this lab.
 
+---
+
 ## 8. Architecture
 
 The diagram shows the four components connecting fund shares to the underlying assets: custody, attestation, redemption, and admission. Solid arrows describe calls or token flows in the lab. The dashed connection represents the intended relationship with off-chain assets, which the mock does not verify.
@@ -295,3 +297,24 @@ The invariant tests check:
 - `usdc.balanceOf(address(queue)) >= queue.totalClaimable()`
 
 These properties check share accounting and coverage of settled claims within the tested operation sequences. They do not prove the existence of off-chain Treasury bills, the accuracy of the NAV, or immediate liquidity for every pending redemption.
+
+---
+
+## 9. Deployment (Sepolia)
+
+- Network: Ethereum Sepolia
+- Chain ID: `11155111`
+- Deployer / administrator: `0x6cbC916c605f702E88C183192939B445c69AeF41`
+- Deployment and configuration blocks: `11948489`–`11948502`
+
+| Contract | Deployed address | Explorer |
+|---|---|---|
+| MockUSDC | `0xf5174C459F6b4CEc2d4C93C13CaB997211B26236` | [Etherscan](https://sepolia.etherscan.io/address/0xf5174C459F6b4CEc2d4C93C13CaB997211B26236#code) |
+| ComplianceRegistry | `0xA413049EFcC1b8cebAe21cbc24FE1D9A2A281a88` | [Etherscan](https://sepolia.etherscan.io/address/0xA413049EFcC1b8cebAe21cbc24FE1D9A2A281a88#code) |
+| MockPriceFeed | `0x4Edf53AEFdCfaEe22d5ed7E1A7671aAE2B35D136` | [Etherscan](https://sepolia.etherscan.io/address/0x4Edf53AEFdCfaEe22d5ed7E1A7671aAE2B35D136#code) |
+| TBillToken | `0xA7b38c73eaABE74A4813B5F959485A4802bC655a` | [Etherscan](https://sepolia.etherscan.io/address/0xA7b38c73eaABE74A4813B5F959485A4802bC655a#code) |
+| MockTBillCustodian | `0xc2037c9dd7797aCB86580340ebA62a4d60243451` | [Etherscan](https://sepolia.etherscan.io/address/0xc2037c9dd7797aCB86580340ebA62a4d60243451#code) |
+| TBillVault | `0x10cd0D196c98F4Aa3B99E1B3B65c147A72643C02` | [Etherscan](https://sepolia.etherscan.io/address/0x10cd0D196c98F4Aa3B99E1B3B65c147A72643C02#code) |
+| RedemptionQueue | `0x4B736699EaB271A8c86caC71004505940194EADE` | [Etherscan](https://sepolia.etherscan.io/address/0x4B736699EaB271A8c86caC71004505940194EADE#code) |
+
+All seven contract-creation transactions and all six permission/configuration transactions completed successfully. This is a testnet deployment using mock USDC, a mock NAV feed, and a mock custodian; it does not hold real Treasury bills.
