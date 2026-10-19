@@ -222,3 +222,76 @@ What the zip must contain:
 
 The discussion prompts live in `STUDENT-QUESTIONS.md` — one per plank, no standard answers, and the
 real point of this lab.
+
+## 8. Architecture
+
+The diagram shows the four components connecting fund shares to the underlying assets: custody, attestation, redemption, and admission. Solid arrows describe calls or token flows in the lab. The dashed connection represents the intended relationship with off-chain assets, which the mock does not verify.
+
+```mermaid
+flowchart TD
+    Investor["Investor"]
+    Operator["Fund operator"]
+    Reporter["NAV reporter"]
+    ComplianceAdmin["Compliance administrator"]
+
+    subgraph Admission["Admission"]
+        Registry["ComplianceRegistry"]
+        Token["TBillToken: fund shares"]
+    end
+
+    subgraph Attestation["Attestation"]
+        Feed["MockPriceFeed: reported NAV"]
+        Vault["TBillVault: subscriptions and cash reserves"]
+    end
+
+    subgraph Custody["Custody"]
+        Custodian["MockTBillCustodian: reported holdings"]
+        Offchain["Off-chain Treasury bills: conceptual backing"]
+    end
+
+    subgraph Redemption["Redemption"]
+        Queue["RedemptionQueue: requests and claimable balances"]
+    end
+
+    ComplianceAdmin -->|"Manage whitelist"| Registry
+    Token -->|"Check nonzero endpoints on every balance change"| Registry
+
+    Investor -->|"subscribe: pay USDC"| Vault
+    Vault -->|"mint shares"| Token
+    Token -->|"New tBILL shares"| Investor
+
+    Reporter -->|"attest: submit NAV"| Vault
+    Vault -->|"Update reported price"| Feed
+    Vault -->|"Read NAV for valuation"| Feed
+
+    Operator -->|"Authorize invest"| Vault
+    Vault -->|"invest: transfer USDC and record purchase"| Custodian
+    Custodian -.->|"Reported representation, not verified ownership"| Offchain
+
+    Investor -->|"enqueue: escrow tBILL shares"| Queue
+    Queue -->|"Read NAV and lock payout"| Vault
+    Operator -->|"depositReserves: provide USDC"| Vault
+    Operator -->|"settle: process requests in FIFO order"| Queue
+    Vault -->|"releaseReserves: USDC for settlement"| Queue
+    Queue -->|"Burn settled shares"| Token
+    Queue -->|"claim: pay USDC to caller"| Investor
+```
+
+### How the components work together
+
+1. **Admission:** The compliance administrator manages the whitelist. The token checks nonzero sender and recipient addresses for transfers, minting, and burning. The redemption queue must also be whitelisted.
+
+2. **Subscription and attestation:** An eligible investor approves the vault to spend USDC and subscribes. The vault receives the payment and mints shares using the reported NAV. The reporter can update that NAV, but the contracts do not independently verify the underlying asset valuation.
+
+3. **Custody:** The operator can invest the vault’s cash. In this lab, `invest()` transfers USDC to the mock custodian and updates its holdings record. This simulates an investment; it does not execute a real Treasury purchase. The operator can later provide USDC through `depositReserves()` to simulate returned sale proceeds, but this function does not itself sell securities or reconcile the custody record.
+
+4. **Redemption:** The investor approves the queue to spend tBILL and calls `enqueue()`. The queue escrows the shares and fixes the payout at the current NAV. An authorized settler processes complete requests in FIFO order, draws USDC from the vault, and burns the corresponding shares. The investor then calls `claim()` to withdraw the settled cash. The lab models delayed settlement without enforcing a one-day waiting period.
+
+### Queue accounting properties
+
+The invariant tests check:
+
+- `tBill.balanceOf(address(queue)) == queue.pendingShares()`
+- `usdc.balanceOf(address(queue)) >= queue.totalClaimable()`
+
+These properties check share accounting and coverage of settled claims within the tested operation sequences. They do not prove the existence of off-chain Treasury bills, the accuracy of the NAV, or immediate liquidity for every pending redemption.
