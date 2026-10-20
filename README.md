@@ -318,3 +318,28 @@ These properties check share accounting and coverage of settled claims within th
 | RedemptionQueue | `0x4B736699EaB271A8c86caC71004505940194EADE` | [Etherscan](https://sepolia.etherscan.io/address/0x4B736699EaB271A8c86caC71004505940194EADE#code) |
 
 All seven contract-creation transactions and all six permission/configuration transactions completed successfully. This is a testnet deployment using mock USDC, a mock NAV feed, and a mock custodian; it does not hold real Treasury bills.
+
+---
+
+## 10. Tier 3 (challenge) — False NAV
+
+`make challenge` passes (2 passed). The exploit: buy at par (1000e6 -> 1000 shares), attest
+2.00 with the reporter key, enqueue at the fake mark (ticket = 2000e6), then settle against
+the vault's whole 2000e6 buffer and claim. The player ends with 2000e6 (profit 1000e6) while
+`reserveBalance() + queue balance = 0` and `totalClaimValue() = 2000e6`: the fund is
+insolvent, so the loss is Alice's.
+
+**The mechanism that would have caught it:** a deviation guard bound to an independent
+valuation — a second price source (or a median of reporters) plus a per-update cap inside
+`attest()`. Short-dated T-bill NAVs move by fractions of a percent per day, so a 100% jump in
+one call is a signature, not a market event; `attest` should revert on a deviation beyond a
+small bound (scaled by elapsed time), which stops the fake mark from ever being accepted.
+Complementary controls: a challenge window (optimistic oracle, disputed against the
+custodian's audited holdings); continuous reconciliation of
+`reserveBalance() + custodian.realHoldings() >= totalClaimValue()`; and separation of duties —
+the party that writes the price must not hold and redeem against it, with redemptions paid
+from realised T+1 proceeds rather than a self-reported mark.
+
+Note that **both queue invariants held throughout the attack**: escrow conservation and
+settlement solvency describe internal consistency, and neither can see that the number the
+system is priced off is a lie.
